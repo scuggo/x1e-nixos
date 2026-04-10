@@ -1,0 +1,244 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Surface Laptop 7 CPU thermal throttling overlay. Adds #cooling-cells
+ * to CPU nodes and passive trip points at 85 °C (5 °C hysteresis) so
+ * cpufreq cooling is registered and step_wise throttling kicks in.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#define THERMAL_NO_LIMIT 0xffffffff
+
+/ {
+	compatible = "microsoft,romulus13", "microsoft,romulus15", "qcom,x1e80100";
+};
+
+&cpu0  { #cooling-cells = <2>; };
+&cpu1  { #cooling-cells = <2>; };
+&cpu2  { #cooling-cells = <2>; };
+&cpu3  { #cooling-cells = <2>; };
+&cpu4  { #cooling-cells = <2>; };
+&cpu5  { #cooling-cells = <2>; };
+&cpu6  { #cooling-cells = <2>; };
+&cpu7  { #cooling-cells = <2>; };
+&cpu8  { #cooling-cells = <2>; };
+&cpu9  { #cooling-cells = <2>; };
+&cpu10 { #cooling-cells = <2>; };
+&cpu11 { #cooling-cells = <2>; };
+
+&{/thermal-zones/cpu0-0-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu0_0_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu0_0_passive>;
+			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu0-1-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu0_1_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu0_1_passive>;
+			cooling-device = <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu0-2-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu0_2_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu0_2_passive>;
+			cooling-device = <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu0-3-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu0_3_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu0_3_passive>;
+			cooling-device = <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu1-0-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu1_0_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu1_0_passive>;
+			cooling-device = <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu1-1-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu1_1_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu1_1_passive>;
+			cooling-device = <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu1-2-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu1_2_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu1_2_passive>;
+			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu1-3-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu1_3_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu1_3_passive>;
+			cooling-device = <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu2-0-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu2_0_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu2_0_passive>;
+			cooling-device = <&cpu8 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu2-1-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu2_1_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu2_1_passive>;
+			cooling-device = <&cpu9 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu2-2-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu2_2_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu2_2_passive>;
+			cooling-device = <&cpu10 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};
+
+&{/thermal-zones/cpu2-3-top-thermal} {
+	polling-delay-passive = <250>;
+	polling-delay = <1000>;
+	trips {
+		cpu2_3_passive: trip-passive {
+			temperature = <85000>;
+			hysteresis = <5000>;
+			type = "passive";
+		};
+	};
+	cooling-maps {
+		map0 {
+			trip = <&cpu2_3_passive>;
+			cooling-device = <&cpu11 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+		};
+	};
+};

@@ -1,0 +1,99 @@
+--- a/drivers/acpi/platform_profile.c
++++ b/drivers/acpi/platform_profile.c
+@@ -176,7 +176,8 @@ static ssize_t profile_store(struct device *dev,
+ 			return ret;
+ 	}
+
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (acpi_kobj)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+
+ 	return count;
+ }
+@@ -341,7 +342,8 @@ static ssize_t platform_profile_store(struct kobject *kobj,
+ 			return ret;
+ 	}
+
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (acpi_kobj)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+
+ 	return count;
+ }
+@@ -377,7 +379,8 @@ void platform_profile_notify(struct device *dev)
+ 	scoped_cond_guard(mutex_intr, return, &profile_lock) {
+ 		_notify_class_profile(dev, NULL);
+ 	}
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (acpi_kobj)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+ }
+ EXPORT_SYMBOL_GPL(platform_profile_notify);
+
+@@ -425,7 +428,8 @@ int platform_profile_cycle(void)
+ 			return err;
+ 	}
+
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (acpi_kobj)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+
+ 	return 0;
+ }
+@@ -487,9 +491,11 @@ struct device *platform_profile_register(struct device *dev, const char *name,
+ 		goto cleanup_ida;
+ 	}
+
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	if (acpi_kobj)
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
+
+-	err = sysfs_update_group(acpi_kobj, &platform_profile_group);
++	err = acpi_kobj ? sysfs_update_group(acpi_kobj, &platform_profile_group)
++			: 0;
+ 	if (err)
+ 		goto cleanup_cur;
+
+@@ -519,8 +525,10 @@ void platform_profile_remove(struct device *dev)
+ 	ida_free(&platform_profile_ida, pprof->minor);
+ 	device_unregister(&pprof->dev);
+
+-	sysfs_notify(acpi_kobj, NULL, "platform_profile");
+-	sysfs_update_group(acpi_kobj, &platform_profile_group);
++	if (acpi_kobj) {
++		sysfs_notify(acpi_kobj, NULL, "platform_profile");
++		sysfs_update_group(acpi_kobj, &platform_profile_group);
++	}
+ }
+ EXPORT_SYMBOL_GPL(platform_profile_remove);
+
+@@ -567,14 +575,16 @@ static int __init platform_profile_init(void)
+ {
+ 	int err;
+
+-	if (acpi_disabled)
+-		return -EOPNOTSUPP;
+-
+ 	err = class_register(&platform_profile_class);
+ 	if (err)
+ 		return err;
+
+-	err = sysfs_create_group(acpi_kobj, &platform_profile_group);
++	/*
++	 * Legacy sysfs interface under /sys/firmware/acpi/ is only available
++	 * when ACPI is enabled. The class-based interface works regardless.
++	 */
++	err = acpi_kobj ? sysfs_create_group(acpi_kobj, &platform_profile_group)
++			: 0;
+ 	if (err)
+ 		class_unregister(&platform_profile_class);
+
+@@ -584,7 +594,8 @@ static int __init platform_profile_init(void)
+ static void __exit platform_profile_exit(void)
+ {
+-	sysfs_remove_group(acpi_kobj, &platform_profile_group);
++	if (acpi_kobj)
++		sysfs_remove_group(acpi_kobj, &platform_profile_group);
+ 	class_unregister(&platform_profile_class);
+ }
+ module_init(platform_profile_init);

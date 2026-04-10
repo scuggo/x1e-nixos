@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Surface Laptop 7 (Romulus) MSHW0238 QSPI touchpad overlay.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#define IRQ_TYPE_LEVEL_LOW 8
+#define QCOM_GPI_QSPI 4
+
+/ {
+	compatible = "microsoft,romulus13", "microsoft,romulus15", "qcom,x1e80100";
+};
+
+&gpi_dma2 {
+	status = "okay";
+};
+
+&{/} {
+	vreg_ts_5p0: ts-5p0-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_ts_5p0";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&tlmm 65 0>;
+		enable-active-high;
+		startup-delay-us = <100000>;
+	};
+};
+
+&tlmm {
+	qup_qspi19_data_clk: qup-qspi19-data-clk-state {
+		pins = "gpio76", "gpio77", "gpio78";
+		function = "qup2_se3";
+		drive-strength = <6>;
+		bias-disable;
+	};
+
+	qup_qspi19_cs: qup-qspi19-cs-state {
+		pins = "gpio79";
+		function = "qup2_se3";
+		drive-strength = <6>;
+		bias-disable;
+	};
+
+	qup_qspi19_data23: qup-qspi19-data23-state {
+		pins = "gpio66", "gpio67";
+		function = "qup2_se3";
+		drive-strength = <6>;
+		bias-disable;
+	};
+
+	spi19_hid0_reset_deassert: spi19-hid0-reset-deassert-state {
+		pins = "gpio65", "gpio120";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+		output-high;
+	};
+
+	spi19_hid0_reset_assert: spi19-hid0-reset-assert-state {
+		pins = "gpio65", "gpio120";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+		output-low;
+	};
+
+	spi19_hid0_int_bias: spi19-hid0-int-bias-state {
+		pins = "gpio3";
+		function = "gpio";
+		input-enable;
+		bias-pull-up;
+	};
+};
+
+&spi19 {
+	status = "okay";
+	compatible = "qcom,geni-spi-qspi";
+	spi-max-frequency = <20000000>;
+	qcom,qspi-read-opcode = <0xEB>;
+	qcom,qspi-read-dummy-clocks = <8>;
+	qcom,qspi-read-cmd-bytes = <4>;
+
+	pinctrl-0 = <&qup_qspi19_data_clk>, <&qup_qspi19_cs>,
+		    <&qup_qspi19_data23>,
+		    <&spi19_hid0_int_bias>;
+	pinctrl-names = "default";
+
+	dmas = <&gpi_dma2 0 3 QCOM_GPI_QSPI>,
+	       <&gpi_dma2 1 3 QCOM_GPI_QSPI>;
+	dma-names = "tx", "rx";
+
+	touchpad: touchpad@0 {
+		compatible = "hid-over-spi";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+
+		vdd-supply = <&vreg_ts_5p0>;
+
+		pinctrl-0 = <&spi19_hid0_reset_deassert>;
+		pinctrl-1 = <&spi19_hid0_reset_assert>;
+		pinctrl-names = "active", "reset";
+	};
+};
