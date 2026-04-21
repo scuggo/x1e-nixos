@@ -62,6 +62,12 @@
       "clk_ignore_unused"
       "pd_ignore_unused"
       "iomem=relaxed"
+      "mem_sleep_default=s2idle"
+    ];
+
+    blacklistedKernelModules = [
+      "qcom_battmgr"
+      "qcrypto"
     ];
 
     supportedFilesystems = {

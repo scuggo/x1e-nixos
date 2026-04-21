@@ -15,6 +15,11 @@ in
   config = {
     nixpkgs.hostPlatform = "aarch64-linux";
 
+    services.udev.extraRules = ''
+      ACTION=="add", SUBSYSTEM=="platform", DRIVER=="dwc3-qcom-legacy", ATTR{power/control}="auto"
+      ACTION=="add", SUBSYSTEM=="usb", ATTR{power/control}="auto"
+    '';
+
     hardware = {
       enableRedistributableFirmware = lib.mkForce true;
       enableAllFirmware = lib.mkForce true;
