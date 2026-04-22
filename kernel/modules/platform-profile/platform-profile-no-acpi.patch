@@ -1,99 +1,124 @@
---- a/drivers/acpi/platform_profile.c
-+++ b/drivers/acpi/platform_profile.c
-@@ -176,7 +176,8 @@ static ssize_t profile_store(struct device *dev,
+diff -ruN a/drivers/acpi/platform_profile.c b/drivers/acpi/platform_profile.c
+--- a/drivers/acpi/platform_profile.c	2026-04-22 13:09:37.943936485 +0400
++++ b/drivers/acpi/platform_profile.c	2026-04-22 13:12:09.080175395 +0400
+@@ -16,6 +16,9 @@
+ 
+ static DEFINE_MUTEX(profile_lock);
+ 
++static struct kobject *legacy_kobj;
++static struct kobject *legacy_kobj_created;
++
+ struct platform_profile_handler {
+ 	const char *name;
+ 	struct device dev;
+@@ -215,7 +218,7 @@
  			return ret;
  	}
-
+ 
 -	sysfs_notify(acpi_kobj, NULL, "platform_profile");
-+	if (acpi_kobj)
-+		sysfs_notify(acpi_kobj, NULL, "platform_profile");
-
++	sysfs_notify(legacy_kobj, NULL, "platform_profile");
+ 
  	return count;
  }
-@@ -341,7 +342,8 @@ static ssize_t platform_profile_store(struct kobject *kobj,
+@@ -435,7 +438,7 @@
  			return ret;
  	}
-
+ 
 -	sysfs_notify(acpi_kobj, NULL, "platform_profile");
-+	if (acpi_kobj)
-+		sysfs_notify(acpi_kobj, NULL, "platform_profile");
-
++	sysfs_notify(legacy_kobj, NULL, "platform_profile");
+ 
  	return count;
  }
-@@ -377,7 +379,8 @@ void platform_profile_notify(struct device *dev)
+@@ -481,7 +484,7 @@
  	scoped_cond_guard(mutex_intr, return, &profile_lock) {
  		_notify_class_profile(dev, NULL);
  	}
 -	sysfs_notify(acpi_kobj, NULL, "platform_profile");
-+	if (acpi_kobj)
-+		sysfs_notify(acpi_kobj, NULL, "platform_profile");
++	sysfs_notify(legacy_kobj, NULL, "platform_profile");
  }
  EXPORT_SYMBOL_GPL(platform_profile_notify);
-
-@@ -425,7 +428,8 @@ int platform_profile_cycle(void)
+ 
+@@ -529,7 +532,7 @@
  			return err;
  	}
-
+ 
 -	sysfs_notify(acpi_kobj, NULL, "platform_profile");
-+	if (acpi_kobj)
-+		sysfs_notify(acpi_kobj, NULL, "platform_profile");
-
++	sysfs_notify(legacy_kobj, NULL, "platform_profile");
+ 
  	return 0;
  }
-@@ -487,9 +491,11 @@ struct device *platform_profile_register(struct device *dev, const char *name,
+@@ -603,9 +606,9 @@
  		goto cleanup_ida;
  	}
-
+ 
 -	sysfs_notify(acpi_kobj, NULL, "platform_profile");
-+	if (acpi_kobj)
-+		sysfs_notify(acpi_kobj, NULL, "platform_profile");
-
++	sysfs_notify(legacy_kobj, NULL, "platform_profile");
+ 
 -	err = sysfs_update_group(acpi_kobj, &platform_profile_group);
-+	err = acpi_kobj ? sysfs_update_group(acpi_kobj, &platform_profile_group)
-+			: 0;
++	err = sysfs_update_group(legacy_kobj, &platform_profile_group);
  	if (err)
  		goto cleanup_cur;
-
-@@ -519,8 +525,10 @@ void platform_profile_remove(struct device *dev)
+ 
+@@ -639,8 +642,8 @@
  	ida_free(&platform_profile_ida, pprof->minor);
  	device_unregister(&pprof->dev);
-
+ 
 -	sysfs_notify(acpi_kobj, NULL, "platform_profile");
 -	sysfs_update_group(acpi_kobj, &platform_profile_group);
-+	if (acpi_kobj) {
-+		sysfs_notify(acpi_kobj, NULL, "platform_profile");
-+		sysfs_update_group(acpi_kobj, &platform_profile_group);
-+	}
++	sysfs_notify(legacy_kobj, NULL, "platform_profile");
++	sysfs_update_group(legacy_kobj, &platform_profile_group);
  }
  EXPORT_SYMBOL_GPL(platform_profile_remove);
-
-@@ -567,14 +575,16 @@ static int __init platform_profile_init(void)
+ 
+@@ -688,24 +691,45 @@
  {
  	int err;
-
+ 
 -	if (acpi_disabled)
 -		return -EOPNOTSUPP;
--
++	if (acpi_kobj) {
++		legacy_kobj = acpi_kobj;
++	} else {
++		legacy_kobj_created = kobject_create_and_add("acpi", firmware_kobj);
++		if (!legacy_kobj_created)
++			return -ENOMEM;
++		legacy_kobj = legacy_kobj_created;
++	}
+ 
  	err = class_register(&platform_profile_class);
  	if (err)
- 		return err;
-
+-		return err;
++		goto put_kobj;
+ 
 -	err = sysfs_create_group(acpi_kobj, &platform_profile_group);
-+	/*
-+	 * Legacy sysfs interface under /sys/firmware/acpi/ is only available
-+	 * when ACPI is enabled. The class-based interface works regardless.
-+	 */
-+	err = acpi_kobj ? sysfs_create_group(acpi_kobj, &platform_profile_group)
-+			: 0;
- 	if (err)
+-	if (err)
++	err = sysfs_create_group(legacy_kobj, &platform_profile_group);
++	if (err) {
  		class_unregister(&platform_profile_class);
-
-@@ -584,7 +594,8 @@ static int __init platform_profile_init(void)
++		goto put_kobj;
++	}
++
++	return 0;
+ 
++put_kobj:
++	if (legacy_kobj_created) {
++		kobject_put(legacy_kobj_created);
++		legacy_kobj_created = NULL;
++		legacy_kobj = NULL;
++	}
+ 	return err;
+ }
+ 
  static void __exit platform_profile_exit(void)
  {
 -	sysfs_remove_group(acpi_kobj, &platform_profile_group);
-+	if (acpi_kobj)
-+		sysfs_remove_group(acpi_kobj, &platform_profile_group);
++	sysfs_remove_group(legacy_kobj, &platform_profile_group);
  	class_unregister(&platform_profile_class);
++	if (legacy_kobj_created) {
++		kobject_put(legacy_kobj_created);
++		legacy_kobj_created = NULL;
++		legacy_kobj = NULL;
++	}
  }
  module_init(platform_profile_init);
+ module_exit(platform_profile_exit);
