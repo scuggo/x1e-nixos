@@ -1,0 +1,288 @@
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_9_2_x1e80100.h b/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_9_2_x1e80100.h
+--- a/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_9_2_x1e80100.h	2026-05-29 11:03:42.924716071 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_9_2_x1e80100.h	2026-05-29 21:59:52.331868636 +0400
+@@ -314,6 +314,7 @@
+ 		.prog_fetch_lines_worst_case = 24,
+ 		.intr_underrun = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 24),
+ 		.intr_vsync = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 25),
++		.features = BIT(DPU_INTF_AVR),
+ 	}, {
+ 		.name = "intf_1", .id = INTF_1,
+ 		.base = 0x35000, .len = 0x300,
+@@ -348,6 +349,7 @@
+ 		.prog_fetch_lines_worst_case = 24,
+ 		.intr_underrun = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 20),
+ 		.intr_vsync = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 21),
++		.features = BIT(DPU_INTF_AVR),
+ 	}, {
+ 		.name = "intf_5", .id = INTF_5,
+ 		.base = 0x39000, .len = 0x280,
+@@ -356,6 +358,7 @@
+ 		.prog_fetch_lines_worst_case = 24,
+ 		.intr_underrun = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 22),
+ 		.intr_vsync = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 23),
++		.features = BIT(DPU_INTF_AVR),
+ 	}, {
+ 		.name = "intf_6", .id = INTF_6,
+ 		.base = 0x3A000, .len = 0x280,
+@@ -364,6 +367,7 @@
+ 		.prog_fetch_lines_worst_case = 24,
+ 		.intr_underrun = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 16),
+ 		.intr_vsync = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 17),
++		.features = BIT(DPU_INTF_AVR),
+ 	}, {
+ 		.name = "intf_7", .id = INTF_7,
+ 		.base = 0x3b000, .len = 0x280,
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c	2026-05-29 11:03:40.286201235 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c	2026-05-29 21:59:52.333730506 +0400
+@@ -1508,6 +1508,9 @@
+ 	    (!clone_mode_requested && clone_mode_enabled))
+ 		new_crtc_state->mode_changed = true;
+ 
++	if (new_crtc_state->vrr_enabled != old_crtc_state->vrr_enabled)
++		new_crtc_state->mode_changed = true;
++
+ 	return 0;
+ }
+ 
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c	2026-05-29 11:03:39.718213467 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c	2026-05-29 21:59:52.334011092 +0400
+@@ -1268,6 +1268,20 @@
+ 		}
+ 
+ 		phys->cached_mode = crtc_state->adjusted_mode;
++
++		phys->vrr_enabled = false;
++		phys->vrr_min_fps = 0;
++		if (crtc_state->vrr_enabled && conn_state->connector) {
++			const struct drm_monitor_range_info *range =
++				&conn_state->connector->display_info.monitor_range;
++			u32 mode_fps = drm_mode_vrefresh(&crtc_state->adjusted_mode);
++
++			if (range->min_vfreq && range->min_vfreq < mode_fps) {
++				phys->vrr_enabled = true;
++				phys->vrr_min_fps = range->min_vfreq;
++			}
++		}
++
+ 		if (phys->ops.atomic_mode_set)
+ 			phys->ops.atomic_mode_set(phys, crtc_state, conn_state);
+ 	}
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h	2026-05-29 11:11:43.623735790 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h	2026-05-29 21:59:52.334868630 +0400
+@@ -198,6 +198,8 @@
+ 	wait_queue_head_t pending_kickoff_wq;
+ 	unsigned int irq[INTR_IDX_MAX];
+ 	bool has_intf_te;
++	bool vrr_enabled;
++	u32 vrr_min_fps;
+ };
+ 
+ static inline int dpu_encoder_phys_inc_pending(struct dpu_encoder_phys *phys)
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c	2026-05-29 11:03:42.399672045 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c	2026-05-29 21:59:52.336293281 +0400
+@@ -314,6 +314,18 @@
+ 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+ 	phys_enc->hw_intf->ops.setup_timing_gen(phys_enc->hw_intf,
+ 			&timing_params, fmt);
++
++	if (phys_enc->vrr_enabled && phys_enc->hw_intf->ops.setup_avr) {
++		struct dpu_hw_intf_avr_params avr = {
++			.default_fps = drm_mode_vrefresh(&mode),
++			.min_fps = phys_enc->vrr_min_fps,
++		};
++
++		phys_enc->hw_intf->ops.setup_avr(phys_enc->hw_intf,
++				&timing_params, &avr);
++		phys_enc->hw_intf->ops.avr_ctrl(phys_enc->hw_intf, true, false);
++	}
++
+ 	phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl, &intf_cfg);
+ 
+ 	/* setup which pp blk will connect to this intf */
+@@ -664,6 +676,9 @@
+ 		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+ 		phys_enc->enable_state = DPU_ENC_ENABLED;
+ 	}
++
++	if (phys_enc->vrr_enabled && phys_enc->hw_intf->ops.avr_trigger)
++		phys_enc->hw_intf->ops.avr_trigger(phys_enc->hw_intf);
+ }
+ 
+ static void dpu_encoder_phys_vid_irq_enable(struct dpu_encoder_phys *phys_enc)
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h	2026-05-29 11:03:41.855674728 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h	2026-05-29 21:59:52.336489789 +0400
+@@ -150,6 +150,11 @@
+ 	DPU_DSC_MAX
+ };
+ 
++enum {
++	DPU_INTF_AVR = 0x1,
++	DPU_INTF_MAX
++};
++
+ /**
+  * MACRO DPU_HW_BLK_INFO - information of HW blocks inside DPU
+  * @name:              string name for debug purposes
+@@ -519,6 +524,7 @@
+ 	unsigned int intr_underrun;
+ 	unsigned int intr_vsync;
+ 	unsigned int intr_tear_rd_ptr;
++	unsigned long features;
+ };
+ 
+ /**
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c	2026-05-29 11:03:40.787734617 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c	2026-05-29 21:59:52.336679956 +0400
+@@ -77,6 +77,9 @@
+ #define INTF_AVR_MODE                   0x274
+ #define INTF_AVR_TRIGGER                0x278
+ #define INTF_AVR_VTOTAL                 0x27C
++
++#define INTF_AVR_CONTROL_ENABLE         BIT(0)
++#define INTF_AVR_MODE_ONESHOT           (BIT(0) | BIT(8))
+ #define INTF_TEAR_MDP_VSYNC_SEL         0x280
+ #define INTF_TEAR_TEAR_CHECK_EN         0x284
+ #define INTF_TEAR_SYNC_CONFIG_VSYNC     0x288
+@@ -585,6 +588,47 @@
+ 	DPU_REG_WRITE(&intf->hw, INTF_CONFIG2, intf_cfg2);
+ }
+ 
++static void dpu_hw_intf_setup_avr(struct dpu_hw_intf *intf,
++				  const struct dpu_hw_intf_timing_params *p,
++				  const struct dpu_hw_intf_avr_params *avr)
++{
++	struct dpu_hw_blk_reg_map *c = &intf->hw;
++	u32 hsync_period, vsync_period, add_porches = 0, avr_vtotal;
++	u32 diff_fps;
++
++	if (!avr->min_fps || !avr->default_fps || avr->min_fps > avr->default_fps)
++		return;
++
++	diff_fps = avr->default_fps - avr->min_fps;
++
++	hsync_period = p->hsync_pulse_width + p->h_back_porch +
++		       p->width + p->h_front_porch;
++	vsync_period = p->vsync_pulse_width + p->v_back_porch +
++		       p->height + p->v_front_porch;
++
++	if (diff_fps)
++		add_porches = mult_frac(vsync_period, diff_fps, avr->min_fps);
++
++	avr_vtotal = (vsync_period + add_porches) * hsync_period;
++
++	DPU_REG_WRITE(c, INTF_AVR_VTOTAL, avr_vtotal);
++}
++
++static void dpu_hw_intf_avr_ctrl(struct dpu_hw_intf *intf, bool enable, bool oneshot)
++{
++	struct dpu_hw_blk_reg_map *c = &intf->hw;
++	u32 avr_ctrl = enable ? INTF_AVR_CONTROL_ENABLE : 0;
++	u32 avr_mode = (enable && oneshot) ? INTF_AVR_MODE_ONESHOT : 0;
++
++	DPU_REG_WRITE(c, INTF_AVR_CONTROL, avr_ctrl);
++	DPU_REG_WRITE(c, INTF_AVR_MODE, avr_mode);
++}
++
++static void dpu_hw_intf_avr_trigger(struct dpu_hw_intf *intf)
++{
++	DPU_REG_WRITE(&intf->hw, INTF_AVR_TRIGGER, 0x1);
++}
++
+ /**
+  * dpu_hw_intf_init() - Initializes the INTF driver for the passed
+  * interface catalog entry.
+@@ -652,5 +696,11 @@
+ 	if (mdss_rev->core_major_ver >= 7)
+ 		c->ops.program_intf_cmd_cfg = dpu_hw_intf_program_intf_cmd_cfg;
+ 
++	if (cfg->features & BIT(DPU_INTF_AVR)) {
++		c->ops.setup_avr = dpu_hw_intf_setup_avr;
++		c->ops.avr_ctrl = dpu_hw_intf_avr_ctrl;
++		c->ops.avr_trigger = dpu_hw_intf_avr_trigger;
++	}
++
+ 	return c;
+ }
+diff -ruN a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h	2026-05-29 11:03:41.261180349 +0400
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h	2026-05-29 21:59:52.337013151 +0400
+@@ -37,6 +37,11 @@
+ 	bool compression_en;
+ };
+ 
++struct dpu_hw_intf_avr_params {
++	u32 default_fps;
++	u32 min_fps;
++};
++
+ struct dpu_hw_intf_prog_fetch {
+ 	u8 enable;
+ 	/* vsync counter for the front porch pixel line */
+@@ -111,6 +116,14 @@
+ 
+ 	void (*program_intf_cmd_cfg)(struct dpu_hw_intf *intf,
+ 				     struct dpu_hw_intf_cmd_mode_cfg *cmd_mode_cfg);
++
++	void (*setup_avr)(struct dpu_hw_intf *intf,
++			const struct dpu_hw_intf_timing_params *p,
++			const struct dpu_hw_intf_avr_params *avr);
++
++	void (*avr_ctrl)(struct dpu_hw_intf *intf, bool enable, bool oneshot);
++
++	void (*avr_trigger)(struct dpu_hw_intf *intf);
+ };
+ 
+ struct dpu_hw_intf {
+diff -ruN a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c	2026-05-29 11:03:37.530261047 +0400
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c	2026-05-29 21:59:52.337233654 +0400
+@@ -1639,6 +1639,9 @@
+ 	if (drm_dp_max_downspread(dpcd))
+ 		encoding[0] |= DP_SPREAD_AMP_0_5;
+ 
++	if (dpcd[DP_DOWN_STREAM_PORT_COUNT] & DP_MSA_TIMING_PAR_IGNORED)
++		encoding[0] |= DP_MSA_TIMING_PAR_IGNORE_EN;
++
+ 	/* config DOWNSPREAD_CTRL and MAIN_LINK_CHANNEL_CODING_SET */
+ 	drm_dp_dpcd_write(ctrl->aux, DP_DOWNSPREAD_CTRL, encoding, 2);
+ 
+diff -ruN a/drivers/gpu/drm/msm/dp/dp_drm.c b/drivers/gpu/drm/msm/dp/dp_drm.c
+--- a/drivers/gpu/drm/msm/dp/dp_drm.c	2026-05-29 11:03:38.667667124 +0400
++++ b/drivers/gpu/drm/msm/dp/dp_drm.c	2026-05-29 21:59:52.337393023 +0400
+@@ -376,6 +376,8 @@
+ 	if (!msm_dp_display->is_edp)
+ 		drm_connector_attach_dp_subconnector_property(connector);
+ 
++	drm_connector_attach_vrr_capable_property(connector);
++
+ 	drm_connector_attach_encoder(connector, encoder);
+ 
+ 	return connector;
+diff -ruN a/drivers/gpu/drm/msm/dp/dp_panel.c b/drivers/gpu/drm/msm/dp/dp_panel.c
+--- a/drivers/gpu/drm/msm/dp/dp_panel.c	2026-05-29 11:03:39.173225245 +0400
++++ b/drivers/gpu/drm/msm/dp/dp_panel.c	2026-05-29 21:59:52.337516414 +0400
+@@ -289,6 +289,17 @@
+ 		}
+ 	}
+ 
++	if (connector->vrr_capable_property) {
++		const struct drm_monitor_range_info *range =
++			&connector->display_info.monitor_range;
++		bool capable = range->min_vfreq && range->max_vfreq &&
++			range->min_vfreq < range->max_vfreq &&
++			(msm_dp_panel->dpcd[DP_DOWN_STREAM_PORT_COUNT] &
++			 DP_MSA_TIMING_PAR_IGNORED);
++
++		drm_connector_set_vrr_capable_property(connector, capable);
++	}
++
+ end:
+ 	return rc;
+ }

@@ -1,13 +1,23 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
-  dtbName = {
-    "13" = "qcom/x1e80100-microsoft-romulus13.dtb";
-    "15" = "qcom/x1e80100-microsoft-romulus15.dtb";
-  }.${config.x1e.model};
+  dtbName =
+    {
+      "13" = "qcom/x1e80100-microsoft-romulus13.dtb";
+      "15" = "qcom/x1e80100-microsoft-romulus15.dtb";
+    }
+    .${config.x1e.model};
 in
 {
   options.x1e.model = lib.mkOption {
-    type = lib.types.enum [ "13" "15" ];
+    type = lib.types.enum [
+      "13"
+      "15"
+    ];
     default = "13";
     description = "Surface Laptop 7 display size (13.8\" or 15\").";
   };
