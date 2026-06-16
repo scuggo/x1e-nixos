@@ -66,7 +66,6 @@
     ];
 
     blacklistedKernelModules = [
-      "qcom_battmgr"
       "qcrypto"
     ];
 
