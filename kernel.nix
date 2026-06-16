@@ -4,13 +4,13 @@
     kernelPackages =
       let
         linux_x1e = pkgs.buildLinux rec {
-          version = "7.0.0";
-          modDirVersion = "7.0.0";
+          version = "7.1.0";
+          modDirVersion = "7.1.0";
           src = pkgs.fetchFromGitHub {
             owner = "torvalds";
             repo = "linux";
-            rev = "028ef9c96e96197026887c0f092424679298aae8"; # v7.0
-            hash = "sha256-7TjYHhJdD67P3lquusrjjVtUIUzhLPtA5Oy7tc82gYA=";
+            rev = "8cd9520d35a6c38db6567e97dd93b1f11f185dc6"; # v7.1
+            hash = "sha256-bKQiHEhaxinMh2ykjR/thBzkH1ts08IHLSg19BbvdaU=";
           };
           ignoreConfigErrors = true;
           structuredExtraConfig = with lib.kernel; {
