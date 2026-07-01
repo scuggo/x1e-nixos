@@ -4,13 +4,14 @@
     kernelPackages =
       let
         linux_x1e = pkgs.buildLinux rec {
-          version = "7.1.0";
-          modDirVersion = "7.1.0";
-          src = pkgs.fetchFromGitHub {
-            owner = "torvalds";
-            repo = "linux";
-            rev = "8cd9520d35a6c38db6567e97dd93b1f11f185dc6"; # v7.1
-            hash = "sha256-bKQiHEhaxinMh2ykjR/thBzkH1ts08IHLSg19BbvdaU=";
+          version = "7.1.2";
+          modDirVersion = "7.1.2";
+          # Official signed release tarball from kernel.org's CDN (the
+          # canonical source the stable maintainers publish). Point
+          # releases don't exist in torvalds/linux, only in the stable tree.
+          src = pkgs.fetchurl {
+            url = "mirror://kernel/linux/kernel/v7.x/linux-${version}.tar.xz";
+            hash = "sha256-NxmMk3J74kfJ+1MJu4bNXklsYeUyLNjE7KlHa7C1iD8=";
           };
           ignoreConfigErrors = true;
           structuredExtraConfig = with lib.kernel; {
